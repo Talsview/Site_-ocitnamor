@@ -223,6 +223,7 @@ function showResponse(q, isLast) {
 
   tocarSomSim(isLast);
   createHeartBurst(isLast ? 22 : 14);
+  resetNoButton();
 
   if (isLast) {
     hint.hidden = true;
@@ -265,90 +266,210 @@ card.addEventListener("click", (event) => {
   }
 });
 
-/* ---------- 6. Botão NÃO: fica parado e só foge quando tentam apertar ---------- */
+/* ---------- 6. Botão NÃO: fuga controlada em 4 posições fixas ---------- */
+let noEscapeStep = 0;
+let lastNoEscapeAt = -Infinity;
+const NO_ESCAPE_GAP = 12;
+const NO_SCREEN_MARGIN = 10;
+const NO_ESCAPE_DEBOUNCE = 220;
+
+// Guarda o local original do botão. Quando ele escapa, vai para o <body>
+// para que position: fixed seja realmente relativo à tela, e não ao cartão.
+const noButtonHome = {
+  parent: noBtn.parentNode,
+  nextSibling: noBtn.nextSibling,
+};
+
 function resetNoButton() {
-  noBtn.classList.remove("is-escaping", "is-popping");
-  noBtn.style.left = "";
-  noBtn.style.top = "";
+  noEscapeStep = 0;
+  lastNoEscapeAt = -Infinity;
+  clearTimeout(escapeNoButton._popTimer);
+
+  if (noBtn.classList.contains("is-escaping")) {
+    noBtn.classList.remove("is-escaping", "is-popping");
+    noBtn.style.left = "";
+    noBtn.style.top = "";
+    noButtonHome.parent.insertBefore(noBtn, noButtonHome.nextSibling);
+  } else {
+    noBtn.classList.remove("is-popping");
+    noBtn.style.left = "";
+    noBtn.style.top = "";
+  }
 }
 
-function rectsOverlap(x, y, width, height, avoidRect, buffer) {
-  return !(
-    x + width + buffer < avoidRect.left ||
-    x - buffer > avoidRect.right ||
-    y + height + buffer < avoidRect.top ||
-    y - buffer > avoidRect.bottom
+function isInsideViewport(x, y, width, height) {
+  return (
+    x >= NO_SCREEN_MARGIN &&
+    y >= NO_SCREEN_MARGIN &&
+    x + width <= window.innerWidth - NO_SCREEN_MARGIN &&
+    y + height <= window.innerHeight - NO_SCREEN_MARGIN
   );
 }
 
-function pickRandomSpot(width, height, avoidRect) {
-  const margin = 12;
-  const maxX = Math.max(margin, window.innerWidth - width - margin);
-  const maxY = Math.max(margin, window.innerHeight - height - margin);
-
-  let x = margin;
-  let y = margin;
-
-  for (let tentativa = 0; tentativa < 10; tentativa += 1) {
-    x = margin + Math.random() * (maxX - margin);
-    y = margin + Math.random() * (maxY - margin);
-    if (!rectsOverlap(x, y, width, height, avoidRect, 16)) break;
-  }
-
-  return { x, y };
+function overlapsCard(x, y, width, height, cardRect, gap = NO_ESCAPE_GAP) {
+  return !(
+    x + width + gap <= cardRect.left ||
+    x - gap >= cardRect.right ||
+    y + height + gap <= cardRect.top ||
+    y - gap >= cardRect.bottom
+  );
 }
 
-function escapeNoButton() {
-  const btnRect = noBtn.getBoundingClientRect();
-  const avoidRect = card.getBoundingClientRect();
+function getFourFixedSpots(width, height, cardRect) {
+  const centerX = cardRect.left + (cardRect.width - width) / 2;
+  const centerY = cardRect.top + (cardRect.height - height) / 2;
 
-  if (!noBtn.classList.contains("is-escaping")) {
-    // Trava a posição atual antes de virar "fixed", para não dar salto visual
-    noBtn.style.left = `${btnRect.left}px`;
-    noBtn.style.top = `${btnRect.top}px`;
-    noBtn.classList.add("is-escaping");
-    void noBtn.offsetWidth; // força o navegador a aplicar a posição inicial
+  // Exatamente 4 pontos, sempre próximos do retângulo:
+  // 1 direita → 2 baixo → 3 esquerda → 4 cima.
+  return [
+    { x: cardRect.right + NO_ESCAPE_GAP, y: centerY },
+    { x: centerX, y: cardRect.bottom + NO_ESCAPE_GAP },
+    { x: cardRect.left - width - NO_ESCAPE_GAP, y: centerY },
+    { x: centerX, y: cardRect.top - height - NO_ESCAPE_GAP },
+  ];
+}
+
+function chooseFixedSpot(width, height, cardRect) {
+  const spots = getFourFixedSpots(width, height, cardRect);
+
+  // A sequência é fixa. Em uma tela estreita, se o ponto atual não couber,
+  // procura o próximo ponto dos mesmos 4 que esteja totalmente visível.
+  for (let offset = 0; offset < spots.length; offset += 1) {
+    const index = (noEscapeStep + offset) % spots.length;
+    const spot = spots[index];
+
+    if (
+      isInsideViewport(spot.x, spot.y, width, height) &&
+      !overlapsCard(spot.x, spot.y, width, height, cardRect)
+    ) {
+      noEscapeStep = (index + 1) % spots.length;
+      return { x: Math.round(spot.x), y: Math.round(spot.y) };
+    }
   }
 
-  const spot = pickRandomSpot(btnRect.width, btnRect.height, avoidRect);
+  // Fallback para celulares muito estreitos: tenta os mesmos quatro pontos
+  // com uma folga menor, ainda exigindo que o botão não fique sobre o cartão.
+  const fallbackGap = 4;
+  const fallbackSpots = [
+    {
+      x: cardRect.right + fallbackGap,
+      y: cardRect.top + (cardRect.height - height) / 2,
+    },
+    {
+      x: cardRect.left + (cardRect.width - width) / 2,
+      y: cardRect.bottom + fallbackGap,
+    },
+    {
+      x: cardRect.left - width - fallbackGap,
+      y: cardRect.top + (cardRect.height - height) / 2,
+    },
+    {
+      x: cardRect.left + (cardRect.width - width) / 2,
+      y: cardRect.top - height - fallbackGap,
+    },
+  ];
+
+  for (const spot of fallbackSpots) {
+    if (
+      isInsideViewport(spot.x, spot.y, width, height) &&
+      !overlapsCard(spot.x, spot.y, width, height, cardRect, fallbackGap)
+    ) {
+      return { x: Math.round(spot.x), y: Math.round(spot.y) };
+    }
+  }
+
+  // Último recurso: mantém o botão dentro da tela. Essa situação só ocorre
+  // quando não existe espaço físico ao redor do cartão no viewport atual.
+  const right = window.innerWidth - width - NO_SCREEN_MARGIN;
+  const bottom = window.innerHeight - height - NO_SCREEN_MARGIN;
+  return {
+    x: Math.round(Math.max(NO_SCREEN_MARGIN, Math.min(right, cardRect.right + 2))),
+    y: Math.round(Math.max(NO_SCREEN_MARGIN, Math.min(bottom, cardRect.bottom + 2))),
+  };
+}
+
+function escapeNoButton(event) {
+  if (event) {
+    if (event.type === "pointerdown") {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      event.preventDefault();
+    }
+
+    if (event.type === "touchstart") {
+      event.preventDefault();
+    }
+
+    if (event.type === "click") {
+      event.preventDefault();
+    }
+
+    event.stopPropagation();
+  }
+
+  const now = performance.now();
+  if (now - lastNoEscapeAt < NO_ESCAPE_DEBOUNCE) return;
+  lastNoEscapeAt = now;
+
+  // Mede o cartão antes de tirar o botão do flexbox.
+  const cardRect = card.getBoundingClientRect();
+  const originalRect = noBtn.getBoundingClientRect();
+
+  if (!noBtn.classList.contains("is-escaping")) {
+    // Tira o botão do cartão. Isso evita o problema de position: fixed dentro
+    // de um elemento que possui transform/animation.
+    document.body.appendChild(noBtn);
+    noBtn.classList.add("is-escaping");
+
+    // Mantém a posição visual por um instante antes de aplicar o ponto novo.
+    noBtn.style.left = `${originalRect.left}px`;
+    noBtn.style.top = `${originalRect.top}px`;
+    void noBtn.offsetWidth;
+  }
+
+  const currentRect = noBtn.getBoundingClientRect();
+  const spot = chooseFixedSpot(currentRect.width, currentRect.height, cardRect);
+
   noBtn.style.left = `${spot.x}px`;
   noBtn.style.top = `${spot.y}px`;
+  noBtn.blur();
 
   tocarSomFuga();
 
   if (!prefersReducedMotion) {
     noBtn.classList.add("is-popping");
     clearTimeout(escapeNoButton._popTimer);
-    escapeNoButton._popTimer = setTimeout(
-      () => noBtn.classList.remove("is-popping"),
-      220
-    );
+    escapeNoButton._popTimer = setTimeout(() => {
+      noBtn.classList.remove("is-popping");
+    }, 220);
   }
 }
 
-// O botão fica parado; só foge no instante em que a pessoa tenta apertar
-// (pointerdown cobre tanto o clique do mouse quanto o toque no celular)
-noBtn.addEventListener("pointerdown", escapeNoButton);
+// Mouse, touch e clique de fallback. O debounce evita que um único toque
+// produza duas fugas (pointerdown + click).
+noBtn.addEventListener("pointerdown", escapeNoButton, { passive: false });
+noBtn.addEventListener("touchstart", escapeNoButton, { passive: false });
+noBtn.addEventListener("click", escapeNoButton);
 
-// Se por acaso um clique acontecer, ele nunca conta como resposta "não"
-noBtn.addEventListener("click", (e) => {
-  e.preventDefault();
-  escapeNoButton();
+// Teclado: Enter/Espaço também fazem o botão fugir.
+noBtn.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    escapeNoButton(event);
+  }
 });
 
-// Mantém o botão dentro da tela se a janela for redimensionada/rotacionada
+// Reposiciona o ponto atual quando a tela é redimensionada ou girada.
 window.addEventListener("resize", () => {
   if (!noBtn.classList.contains("is-escaping")) return;
 
   const btnRect = noBtn.getBoundingClientRect();
-  const margin = 12;
-  const maxX = Math.max(margin, window.innerWidth - btnRect.width - margin);
-  const maxY = Math.max(margin, window.innerHeight - btnRect.height - margin);
-  const curX = parseFloat(noBtn.style.left) || 0;
-  const curY = parseFloat(noBtn.style.top) || 0;
+  const cardRect = card.getBoundingClientRect();
+  const currentStep = noEscapeStep;
+  noEscapeStep = (currentStep + 3) % 4;
+  const spot = chooseFixedSpot(btnRect.width, btnRect.height, cardRect);
 
-  noBtn.style.left = `${Math.min(Math.max(margin, curX), maxX)}px`;
-  noBtn.style.top = `${Math.min(Math.max(margin, curY), maxY)}px`;
+  noBtn.style.left = `${spot.x}px`;
+  noBtn.style.top = `${spot.y}px`;
 });
 
 /* ---------- 7. Corações flutuando ao fundo (decoração ambiente) ---------- */
