@@ -265,8 +265,11 @@ card.addEventListener("click", (event) => {
   }
 });
 
-/* ---------- 6. Botão NÃO: fica parado e só foge quando tentam apertar ---------- */
+/* ---------- 6. Botão NÃO: posições fixas ao redor do cartão ---------- */
+let noEscapeStep = 0;
+
 function resetNoButton() {
+  noEscapeStep = 0;
   noBtn.classList.remove("is-escaping", "is-popping");
   noBtn.style.left = "";
   noBtn.style.top = "";
@@ -281,21 +284,89 @@ function rectsOverlap(x, y, width, height, avoidRect, buffer) {
   );
 }
 
-function pickRandomSpot(width, height, avoidRect) {
+function getFixedSpots(width, height, avoidRect) {
   const margin = 12;
+  const gap = 12;
   const maxX = Math.max(margin, window.innerWidth - width - margin);
   const maxY = Math.max(margin, window.innerHeight - height - margin);
 
-  let x = margin;
-  let y = margin;
+  // O botão NÃO usa apenas posições fixas e previsíveis ao redor do cartão.
+  // A lista é calculada a partir do cartão para continuar funcionando em telas
+  // de tamanhos diferentes, sem jogar o botão para longe.
+  const spots = [
+    // abaixo
+    {
+      x: avoidRect.left + (avoidRect.width - width) / 2,
+      y: avoidRect.bottom + gap,
+    },
+    // acima
+    {
+      x: avoidRect.left + (avoidRect.width - width) / 2,
+      y: avoidRect.top - height - gap,
+    },
+    // direita
+    {
+      x: avoidRect.right + gap,
+      y: avoidRect.top + (avoidRect.height - height) / 2,
+    },
+    // esquerda
+    {
+      x: avoidRect.left - width - gap,
+      y: avoidRect.top + (avoidRect.height - height) / 2,
+    },
+    // canto inferior direito
+    {
+      x: avoidRect.right - width,
+      y: avoidRect.bottom + gap,
+    },
+    // canto inferior esquerdo
+    {
+      x: avoidRect.left,
+      y: avoidRect.bottom + gap,
+    },
+  ];
 
-  for (let tentativa = 0; tentativa < 10; tentativa += 1) {
-    x = margin + Math.random() * (maxX - margin);
-    y = margin + Math.random() * (maxY - margin);
-    if (!rectsOverlap(x, y, width, height, avoidRect, 16)) break;
+  return spots
+    .map(({ x, y }) => ({
+      x: Math.round(Math.min(Math.max(margin, x), maxX)),
+      y: Math.round(Math.min(Math.max(margin, y), maxY)),
+    }))
+    .filter(({ x, y }) => !rectsOverlap(x, y, width, height, avoidRect, gap));
+}
+
+function pickFixedSpot(width, height, avoidRect) {
+  const spots = getFixedSpots(width, height, avoidRect);
+
+  if (!spots.length) {
+    // Em telas muito pequenas, tenta as posições mais próximas possíveis
+    // sem sobrepor o cartão.
+    const fallback = [
+      {
+        x: avoidRect.left + (avoidRect.width - width) / 2,
+        y: avoidRect.bottom + 8,
+      },
+      {
+        x: avoidRect.left + (avoidRect.width - width) / 2,
+        y: avoidRect.top - height - 8,
+      },
+    ].map(({ x, y }) => ({
+      x: Math.round(Math.min(Math.max(8, x), Math.max(8, window.innerWidth - width - 8))),
+      y: Math.round(Math.min(Math.max(8, y), Math.max(8, window.innerHeight - height - 8))),
+    }));
+
+    const livre = fallback.find(
+      ({ x, y }) => !rectsOverlap(x, y, width, height, avoidRect, 4)
+    );
+
+    return livre || {
+      x: Math.max(8, Math.min(avoidRect.left, window.innerWidth - width - 8)),
+      y: Math.max(8, Math.min(avoidRect.bottom + 8, window.innerHeight - height - 8)),
+    };
   }
 
-  return { x, y };
+  const spot = spots[noEscapeStep % spots.length];
+  noEscapeStep += 1;
+  return spot;
 }
 
 function escapeNoButton() {
@@ -310,7 +381,7 @@ function escapeNoButton() {
     void noBtn.offsetWidth; // força o navegador a aplicar a posição inicial
   }
 
-  const spot = pickRandomSpot(btnRect.width, btnRect.height, avoidRect);
+  const spot = pickFixedSpot(btnRect.width, btnRect.height, avoidRect);
   noBtn.style.left = `${spot.x}px`;
   noBtn.style.top = `${spot.y}px`;
 
@@ -326,14 +397,17 @@ function escapeNoButton() {
   }
 }
 
-// O botão fica parado; só foge no instante em que a pessoa tenta apertar
-// (pointerdown cobre tanto o clique do mouse quanto o toque no celular)
+// O botão fica parado; só foge no instante em que a pessoa tenta apertar.
+// pointerdown cobre mouse e toque no celular sem esperar o clique terminar.
 noBtn.addEventListener("pointerdown", escapeNoButton);
 
-// Se por acaso um clique acontecer, ele nunca conta como resposta "não"
-noBtn.addEventListener("click", (e) => {
-  e.preventDefault();
-  escapeNoButton();
+// A interação por teclado continua funcionando sem causar uma segunda fuga
+// quando o navegador dispara o evento de clique depois do pointerdown.
+noBtn.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    escapeNoButton();
+  }
 });
 
 // Mantém o botão dentro da tela se a janela for redimensionada/rotacionada
