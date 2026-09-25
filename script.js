@@ -43,9 +43,9 @@ const prefersReducedMotion = window.matchMedia(
   "(prefers-reduced-motion: reduce)"
 ).matches;
 
-/* ---------- 3. Som (Web Audio API — nenhum arquivo de áudio necessário) ----------
-   Os "bipes" são sintetizados na hora, então o site continua leve e não
-   depende de nenhum arquivo em assets/. */
+/* ---------- 3. Som — efeitos e trilha sonora (Web Audio API) ----------
+   Tudo é sintetizado na hora, então o site continua leve e não depende
+   de nenhum arquivo de áudio em assets/. */
 let somLigado = true;
 let audioCtx = null;
 
@@ -112,6 +112,55 @@ function tocarSomFuga() {
   osc.stop(agora + 0.2);
 }
 
+// Toca um acorde "pad" bem suave — várias notas entrando uma pouquinho
+// depois da outra, como um abraço sonoro no fundo
+function tocarAcordePad(ctx, frequencias, tempoInicio, duracao) {
+  frequencias.forEach((freq, i) => {
+    tocarNota(ctx, freq, tempoInicio + i * 0.35, duracao, "sine", 0.045);
+  });
+}
+
+// Trilha sonora ambiente: dois acordes suaves alternando em loop, tocados
+// para sempre enquanto o som estiver ligado. EDITE AQUI para trocar os
+// acordes (frequências em Hz) ou a duração de cada volta do loop.
+const ACORDES_TRILHA = [
+  [261.63, 329.63, 392.0, 493.88], // Dó maior com 7a (quente, esperançoso)
+  [220.0, 261.63, 329.63, 392.0], // Lá menor com 7a (mais suave, nostálgico)
+];
+const DURACAO_LOOP_TRILHA = 8; // segundos
+
+let trilhaTimer = null;
+let trilhaAtiva = false;
+let acordeAtual = 0;
+
+function agendarProximoAcordeDaTrilha() {
+  const ctx = getAudioContext();
+  if (!ctx || !somLigado) {
+    trilhaAtiva = false;
+    return;
+  }
+
+  const inicio = ctx.currentTime + 0.05;
+  tocarAcordePad(ctx, ACORDES_TRILHA[acordeAtual], inicio, DURACAO_LOOP_TRILHA - 0.5);
+  acordeAtual = (acordeAtual + 1) % ACORDES_TRILHA.length;
+
+  trilhaTimer = setTimeout(agendarProximoAcordeDaTrilha, DURACAO_LOOP_TRILHA * 1000);
+}
+
+function iniciarTrilhaSonora() {
+  if (trilhaAtiva || !somLigado) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  trilhaAtiva = true;
+  agendarProximoAcordeDaTrilha();
+}
+
+function pararTrilhaSonora() {
+  clearTimeout(trilhaTimer);
+  trilhaAtiva = false;
+  // o acorde que já começou a tocar termina naturalmente, sem corte seco
+}
+
 soundToggle.addEventListener("click", () => {
   somLigado = !somLigado;
   soundToggle.textContent = somLigado ? "🔊" : "🔇";
@@ -121,7 +170,17 @@ soundToggle.addEventListener("click", () => {
   if (somLigado) {
     const ctx = getAudioContext();
     if (ctx) tocarNota(ctx, 660, ctx.currentTime, 0.15, "sine", 0.15);
+    iniciarTrilhaSonora();
+  } else {
+    pararTrilhaSonora();
   }
+});
+
+// Navegadores só deixam o som começar depois de uma interação da pessoa,
+// então a trilha entra suavemente assim que ela tocar/clicar/apertar
+// qualquer coisa na página pela primeira vez.
+["pointerdown", "keydown"].forEach((evento) => {
+  document.addEventListener(evento, iniciarTrilhaSonora, { once: true });
 });
 
 /* ---------- 4. Estado do questionário ---------- */
