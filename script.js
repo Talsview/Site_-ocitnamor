@@ -37,12 +37,94 @@ const hint = document.getElementById("hint");
 const restartBtn = document.getElementById("restartBtn");
 const ambientHearts = document.getElementById("ambientHearts");
 const burst = document.getElementById("burst");
+const soundToggle = document.getElementById("soundToggle");
 
 const prefersReducedMotion = window.matchMedia(
   "(prefers-reduced-motion: reduce)"
 ).matches;
 
-/* ---------- 3. Estado do questionário ---------- */
+/* ---------- 3. Som (Web Audio API — nenhum arquivo de áudio necessário) ----------
+   Os "bipes" são sintetizados na hora, então o site continua leve e não
+   depende de nenhum arquivo em assets/. */
+let somLigado = true;
+let audioCtx = null;
+
+function getAudioContext() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return null;
+  if (!audioCtx) audioCtx = new Ctx();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+// Toca uma única nota curta com um envelope suave (sem estalos)
+function tocarNota(ctx, freq, tempoInicio, duracao, tipoOnda, volume) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = tipoOnda || "sine";
+  osc.frequency.setValueAtTime(freq, tempoInicio);
+
+  gain.gain.setValueAtTime(0, tempoInicio);
+  gain.gain.linearRampToValueAtTime(volume || 0.18, tempoInicio + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, tempoInicio + duracao);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(tempoInicio);
+  osc.stop(tempoInicio + duracao + 0.05);
+}
+
+// Pequeno "jingle" feliz ao clicar em SIM (mais notas na última pergunta)
+function tocarSomSim(isLast) {
+  if (!somLigado) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const agora = ctx.currentTime;
+  const notas = isLast
+    ? [523.25, 659.25, 783.99, 1046.5]
+    : [587.33, 739.99, 880];
+
+  notas.forEach((freq, i) => tocarNota(ctx, freq, agora + i * 0.09, 0.32));
+}
+
+// Bipe curto e divertido quando o botão NÃO escapa
+function tocarSomFuga() {
+  if (!somLigado) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const agora = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(520, agora);
+  osc.frequency.exponentialRampToValueAtTime(220, agora + 0.15);
+
+  gain.gain.setValueAtTime(0.14, agora);
+  gain.gain.exponentialRampToValueAtTime(0.0001, agora + 0.16);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(agora);
+  osc.stop(agora + 0.2);
+}
+
+soundToggle.addEventListener("click", () => {
+  somLigado = !somLigado;
+  soundToggle.textContent = somLigado ? "🔊" : "🔇";
+  soundToggle.setAttribute("aria-pressed", String(somLigado));
+  soundToggle.setAttribute("aria-label", somLigado ? "Desativar som" : "Ativar som");
+
+  if (somLigado) {
+    const ctx = getAudioContext();
+    if (ctx) tocarNota(ctx, 660, ctx.currentTime, 0.15, "sine", 0.15);
+  }
+});
+
+/* ---------- 4. Estado do questionário ---------- */
 let currentIndex = 0;
 let isShowingResponse = false;
 let advanceTimer = null;
@@ -80,6 +162,7 @@ function showResponse(q, isLast) {
 
   actions.hidden = true;
 
+  tocarSomSim(isLast);
   createHeartBurst(isLast ? 22 : 14);
 
   if (isLast) {
@@ -106,7 +189,7 @@ function replayFadeIn(el) {
   el.classList.add("fade-in");
 }
 
-/* ---------- 4. Botão SIM ---------- */
+/* ---------- 5. Botão SIM ---------- */
 yesBtn.addEventListener("click", () => {
   const q = QUESTIONS[currentIndex];
   const isLast = currentIndex === QUESTIONS.length - 1;
@@ -123,7 +206,7 @@ card.addEventListener("click", (event) => {
   }
 });
 
-/* ---------- 5. Botão NÃO: foge do toque/clique/foco ---------- */
+/* ---------- 6. Botão NÃO: fica parado e só foge quando tentam apertar ---------- */
 function resetNoButton() {
   noBtn.classList.remove("is-escaping", "is-popping");
   noBtn.style.left = "";
@@ -172,6 +255,8 @@ function escapeNoButton() {
   noBtn.style.left = `${spot.x}px`;
   noBtn.style.top = `${spot.y}px`;
 
+  tocarSomFuga();
+
   if (!prefersReducedMotion) {
     noBtn.classList.add("is-popping");
     clearTimeout(escapeNoButton._popTimer);
@@ -207,7 +292,7 @@ window.addEventListener("resize", () => {
   noBtn.style.top = `${Math.min(Math.max(margin, curY), maxY)}px`;
 });
 
-/* ---------- 6. Corações flutuando ao fundo (decoração ambiente) ---------- */
+/* ---------- 7. Corações flutuando ao fundo (decoração ambiente) ---------- */
 function spawnAmbientHeart() {
   const heart = document.createElement("span");
   heart.className = "heart-floating";
@@ -227,7 +312,7 @@ if (!prefersReducedMotion) {
   }
 }
 
-/* ---------- 7. Explosão de corações (comemoração do SIM) ---------- */
+/* ---------- 8. Explosão de corações (comemoração do SIM) ---------- */
 function createHeartBurst(quantidade) {
   const total = prefersReducedMotion
     ? Math.min(quantidade, 6)
@@ -256,11 +341,11 @@ function createHeartBurst(quantidade) {
   }
 }
 
-/* ---------- 8. Recomeçar o questionário ---------- */
+/* ---------- 9. Recomeçar o questionário ---------- */
 restartBtn.addEventListener("click", () => {
   currentIndex = 0;
   renderQuestion(currentIndex);
 });
 
-/* ---------- 9. Início ---------- */
+/* ---------- 10. Início ---------- */
 renderQuestion(currentIndex);

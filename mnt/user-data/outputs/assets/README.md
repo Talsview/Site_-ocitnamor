@@ -45,6 +45,10 @@ Não precisa de instalação nem de build. Duas opções:
 - **Última pergunta**: ao responder SIM na última pergunta, aparece uma
   explosão maior de corações e o botão "Recomeçar 💫", que reinicia o
   questionário do zero.
+- **Som 🔊**: clicar em SIM toca um pequeno "jingle" e o botão NÃO faz um
+  bipe divertido ao fugir. O ícone no canto superior direito liga/desliga
+  o som a qualquer momento — nenhum arquivo de áudio é usado, os sons são
+  gerados na hora pelo navegador (Web Audio API).
 - **Responsividade**: abra o DevTools do navegador (F12 → ícone de celular)
   e teste alguns tamanhos de tela, ou acesse pelo celular mesmo.
 
@@ -67,6 +71,9 @@ Para adicionar mais perguntas, basta copiar um bloco, colar depois do
 
 As cores, fontes e tamanhos ficam nas variáveis no topo de `style.css`
 (seção `:root`).
+
+O som é gerado por código (sem arquivo de áudio); para ajustar volume,
+notas ou desativar por padrão, procure a seção **"3. Som"** em `script.js`.
 
 ## Deploy no Netlify
 
