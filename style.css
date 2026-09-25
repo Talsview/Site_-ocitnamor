@@ -1,0 +1,402 @@
+/* =============================================================
+   QUESTIONÁRIO AMOROSO — style.css
+   Organizado por seções. Mude as cores em :root para restilizar
+   o site inteiro sem precisar procurar valores espalhados.
+   ============================================================= */
+
+/* ---------- 1. Variáveis (edite aqui para mudar a paleta) ---------- */
+:root {
+  /* base do fundo (bem escura, tipo vinho/ameixa) */
+  --bg-1: #2a0e36;
+  --bg-2: #4a0e2e;
+
+  /* manchas da "lâmpada de lava" */
+  --blob-magenta: #c81e6f;
+  --blob-violet: #6b2e9e;
+  --blob-crimson: #e23b57;
+  --blob-rose: #ff6fa0;
+
+  /* texto e destaques */
+  --cream: #fff3f7;
+  --cream-dim: rgba(255, 243, 247, 0.72);
+  --focus-ring: #ffd166;
+
+  /* botão SIM */
+  --yes-start: #ff5d8f;
+  --yes-end: #c81e6f;
+
+  /* botão NÃO (mais discreto, "escapando") */
+  --no-bg: rgba(255, 255, 255, 0.10);
+  --no-border: rgba(255, 255, 255, 0.35);
+
+  /* cartão de vidro */
+  --card-bg: rgba(255, 255, 255, 0.08);
+  --card-border: rgba(255, 255, 255, 0.18);
+
+  /* tipografia */
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-body: "Manrope", system-ui, sans-serif;
+
+  /* geometria */
+  --radius-card: 28px;
+  --radius-btn: 999px;
+}
+
+/* ---------- 2. Reset simples ---------- */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--cream);
+  background: var(--bg-1);
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ---------- 3. Fundo "lâmpada de lava" (somente CSS) ---------- */
+.lava {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 20%, var(--bg-2), var(--bg-1) 65%);
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.75;
+  will-change: transform;
+}
+
+.blob--1 {
+  width: 60vmax;
+  height: 60vmax;
+  left: -20vmax;
+  top: -15vmax;
+  background: var(--blob-violet);
+  animation: drift1 26s ease-in-out infinite alternate;
+}
+
+.blob--2 {
+  width: 50vmax;
+  height: 50vmax;
+  right: -18vmax;
+  top: 10vmax;
+  background: var(--blob-magenta);
+  animation: drift2 22s ease-in-out infinite alternate;
+}
+
+.blob--3 {
+  width: 55vmax;
+  height: 55vmax;
+  left: 10vmax;
+  bottom: -25vmax;
+  background: var(--blob-crimson);
+  animation: drift3 30s ease-in-out infinite alternate;
+}
+
+.blob--4 {
+  width: 38vmax;
+  height: 38vmax;
+  right: 5vmax;
+  bottom: -10vmax;
+  background: var(--blob-rose);
+  opacity: 0.55;
+  animation: drift4 19s ease-in-out infinite alternate;
+}
+
+@keyframes drift1 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(8vmax, 10vmax) scale(1.12); }
+}
+@keyframes drift2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-10vmax, 8vmax) scale(0.9); }
+}
+@keyframes drift3 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(6vmax, -8vmax) scale(1.15); }
+}
+@keyframes drift4 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-6vmax, -6vmax) scale(1.1); }
+}
+
+/* ---------- 4. Corações flutuando ao fundo ---------- */
+.hearts-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.heart-floating {
+  position: absolute;
+  bottom: -10vh;
+  font-size: 1.4rem;
+  opacity: 0;
+  animation-name: floatUp;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+}
+
+@keyframes floatUp {
+  0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.85; }
+  50%  { transform: translateY(-55vh) translateX(3vw) rotate(8deg); }
+  90%  { opacity: 0.4; }
+  100% { transform: translateY(-110vh) translateX(-4vw) rotate(-6deg); opacity: 0; }
+}
+
+/* ---------- 5. Palco / centralização ---------- */
+.stage {
+  position: relative;
+  z-index: 2;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+/* ---------- 6. Cartão de vidro ---------- */
+.card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: var(--radius-card);
+  padding: 40px 28px 32px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  animation: cardIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes cardIn {
+  0%   { opacity: 0; transform: translateY(18px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Único ícone que "bate" suavemente — o único destaque de movimento no cartão */
+.heart-icon {
+  font-size: 2.6rem;
+  line-height: 1;
+  margin-bottom: 14px;
+  animation: heartbeat 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  15%      { transform: scale(1.16); }
+  30%      { transform: scale(0.98); }
+  45%      { transform: scale(1.10); }
+}
+
+/* ---------- 7. Textos ---------- */
+.question {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 5vw + 0.6rem, 2.15rem);
+  line-height: 1.25;
+  margin: 0 0 28px;
+  letter-spacing: -0.01em;
+}
+
+.response {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.15rem, 3.6vw + 0.4rem, 1.5rem);
+  line-height: 1.4;
+  margin: 0 0 20px;
+  color: var(--cream);
+}
+
+.hint {
+  margin: 18px 0 0;
+  font-size: 0.85rem;
+  color: var(--cream-dim);
+}
+
+/* ---------- 8. Botões ---------- */
+.actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.btn {
+  border: none;
+  border-radius: var(--radius-btn);
+  padding: 14px 26px;
+  font-size: 1rem;
+  font-weight: 700;
+  min-height: 48px;
+  min-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.btn .emoji {
+  font-size: 1.1em;
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.btn--yes {
+  color: #fff;
+  background: linear-gradient(135deg, var(--yes-start), var(--yes-end));
+  box-shadow: 0 10px 24px rgba(200, 30, 111, 0.45);
+}
+
+.btn--yes:hover {
+  box-shadow: 0 12px 30px rgba(200, 30, 111, 0.6);
+  transform: translateY(-2px);
+}
+
+.btn--no {
+  color: var(--cream);
+  background: var(--no-bg);
+  border: 1px solid var(--no-border);
+}
+
+/* Quando o JS assume o controle da posição do botão NÃO */
+.btn--no.is-escaping {
+  position: fixed;
+  z-index: 6;
+  transition: left 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              top 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 0.25s ease;
+}
+
+.btn--no.is-escaping.is-popping {
+  transform: scale(1.12) rotate(-4deg);
+}
+
+/* ---------- 9. Estados de transição de pergunta ---------- */
+.card.is-swapping .question,
+.card.is-swapping .response {
+  animation: none;
+}
+
+.fade-in {
+  animation: fadeIn 0.45s ease both;
+}
+
+@keyframes fadeIn {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 10. Tela final ---------- */
+.btn-restart {
+  margin-top: 22px;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--cream-dim);
+  border-radius: var(--radius-btn);
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.btn-restart:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+/* ---------- 11. Explosão de corações (comemoração) ---------- */
+.burst {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.burst-heart {
+  position: absolute;
+  font-size: 1.6rem;
+  animation-name: burstFly;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  animation-fill-mode: forwards;
+}
+
+@keyframes burstFly {
+  0%   { transform: translate(0, 0) scale(0.6) rotate(0deg); opacity: 1; }
+  100% { transform: var(--fly-to, translate(0, -40vh)) scale(1) rotate(var(--fly-rot, 20deg)); opacity: 0; }
+}
+
+/* ---------- 12. Telas maiores (tablets e desktop) ---------- */
+@media (min-width: 600px) {
+  .card {
+    max-width: 440px;
+    padding: 48px 40px 40px;
+  }
+
+  .heart-icon {
+    font-size: 3rem;
+  }
+}
+
+@media (min-width: 900px) {
+  .card {
+    max-width: 480px;
+  }
+
+  .blob--1, .blob--3 { width: 46vmax; height: 46vmax; }
+  .blob--2 { width: 38vmax; height: 38vmax; }
+  .blob--4 { width: 30vmax; height: 30vmax; }
+}
+
+/* ---------- 13. Respeita usuários com preferência por menos animação ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .blob,
+  .heart-icon,
+  .heart-floating,
+  .card,
+  .fade-in {
+    animation: none !important;
+  }
+
+  .btn--no.is-escaping {
+    transition: none;
+  }
+
+  .btn--yes:hover {
+    transform: none;
+  }
+}

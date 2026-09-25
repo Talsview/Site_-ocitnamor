@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Você me ama? ❤️</title>
+  <meta name="description" content="Um pequeno questionário romântico e divertido." />
+  <meta name="theme-color" content="#2a0e36" />
+
+  <!-- Favicon em coração, sem precisar de arquivo de imagem -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9D%A4%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+
+  <!-- Fontes (Google Fonts): Fraunces para o clima romântico, Manrope para leitura leve -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&family=Manrope:wght@500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Fundo estilo "lâmpada de lava": manchas de cor que se movem lentamente (só CSS) -->
+  <div class="lava" aria-hidden="true">
+    <span class="blob blob--1"></span>
+    <span class="blob blob--2"></span>
+    <span class="blob blob--3"></span>
+    <span class="blob blob--4"></span>
+  </div>
+
+  <!-- Corações flutuando ambiente, preenchidos via JS -->
+  <div class="hearts-ambient" id="ambientHearts" aria-hidden="true"></div>
+
+  <main class="stage" id="stage">
+    <section class="card" id="card">
+      <div class="heart-icon" id="heartIcon" aria-hidden="true">❤️</div>
+
+      <p class="question" id="questionText">Você me ama? ❤️</p>
+
+      <p class="response" id="responseText" role="status" aria-live="polite" hidden></p>
+
+      <div class="actions" id="actions">
+        <button type="button" class="btn btn--yes" id="yesBtn">
+          <span id="yesLabel">SIM</span> <span class="emoji">❤️</span>
+        </button>
+        <button type="button" class="btn btn--no" id="noBtn">
+          <span id="noLabel">NÃO</span> <span class="emoji">😏</span>
+        </button>
+      </div>
+
+      <p class="hint" id="hint" hidden>toque para continuar…</p>
+
+      <button type="button" class="btn-restart" id="restartBtn" hidden>Recomeçar 💫</button>
+    </section>
+  </main>
+
+  <!-- Área onde os corações de comemoração "explodem" -->
+  <div class="burst" id="burst" aria-hidden="true"></div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

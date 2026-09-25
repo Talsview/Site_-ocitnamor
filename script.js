@@ -1,0 +1,267 @@
+/* =============================================================
+   QUESTIONÁRIO AMOROSO — script.js
+   JavaScript puro, sem dependências externas.
+   ============================================================= */
+
+/* ---------- 1. EDITE AQUI: perguntas, respostas e mensagens ---------- */
+const QUESTIONS = [
+  {
+    question: "Você me ama? ❤️",
+    yes: "SIM",
+    no: "NÃO",
+    response: "Eu sabia! ❤️ Você acabou de deixar meu coração ainda mais feliz. 🥰",
+  },
+  {
+    question: "Então você vai ficar comigo para sempre? 💍❤️",
+    yes: "SIM",
+    no: "NÃO",
+    response: "Combinado! 💍 Para sempre é só o começo da nossa história. ❤️",
+  },
+  // Para adicionar mais perguntas, é só copiar o bloco acima e mudar o texto.
+];
+
+const TEMPO_ATE_PROXIMA_PERGUNTA = 2600; // milissegundos
+const EMOJIS_AMBIENTE = ["❤️", "💕", "💖", "🥰", "😍"];
+const EMOJIS_COMEMORACAO = ["❤️", "💕", "🥰", "💖", "😍", "💘"];
+
+/* ---------- 2. Referências do DOM ---------- */
+const card = document.getElementById("card");
+const questionText = document.getElementById("questionText");
+const responseText = document.getElementById("responseText");
+const actions = document.getElementById("actions");
+const yesBtn = document.getElementById("yesBtn");
+const noBtn = document.getElementById("noBtn");
+const yesLabel = document.getElementById("yesLabel");
+const noLabel = document.getElementById("noLabel");
+const hint = document.getElementById("hint");
+const restartBtn = document.getElementById("restartBtn");
+const ambientHearts = document.getElementById("ambientHearts");
+const burst = document.getElementById("burst");
+
+const prefersReducedMotion = window.matchMedia(
+  "(prefers-reduced-motion: reduce)"
+).matches;
+
+/* ---------- 3. Estado do questionário ---------- */
+let currentIndex = 0;
+let isShowingResponse = false;
+let advanceTimer = null;
+
+function renderQuestion(index) {
+  const q = QUESTIONS[index];
+  isShowingResponse = false;
+
+  clearTimeout(advanceTimer);
+
+  questionText.hidden = false;
+  questionText.textContent = q.question;
+  replayFadeIn(questionText);
+
+  responseText.hidden = true;
+  responseText.textContent = "";
+
+  actions.hidden = false;
+  hint.hidden = true;
+  restartBtn.hidden = true;
+
+  yesLabel.textContent = q.yes || "SIM";
+  noLabel.textContent = q.no || "NÃO";
+
+  resetNoButton();
+}
+
+function showResponse(q, isLast) {
+  isShowingResponse = true;
+
+  questionText.hidden = true;
+  responseText.hidden = false;
+  responseText.textContent = q.response;
+  replayFadeIn(responseText);
+
+  actions.hidden = true;
+
+  createHeartBurst(isLast ? 22 : 14);
+
+  if (isLast) {
+    hint.hidden = true;
+    restartBtn.hidden = false;
+  } else {
+    hint.hidden = false;
+    advanceTimer = setTimeout(goToNextQuestion, TEMPO_ATE_PROXIMA_PERGUNTA);
+  }
+}
+
+function goToNextQuestion() {
+  clearTimeout(advanceTimer);
+  if (currentIndex < QUESTIONS.length - 1) {
+    currentIndex += 1;
+    renderQuestion(currentIndex);
+  }
+}
+
+function replayFadeIn(el) {
+  el.classList.remove("fade-in");
+  // força o navegador a "esquecer" a animação anterior antes de reaplicar
+  void el.offsetWidth;
+  el.classList.add("fade-in");
+}
+
+/* ---------- 4. Botão SIM ---------- */
+yesBtn.addEventListener("click", () => {
+  const q = QUESTIONS[currentIndex];
+  const isLast = currentIndex === QUESTIONS.length - 1;
+  showResponse(q, isLast);
+});
+
+// Tocar no cartão durante a mensagem avança mais rápido para quem não quer esperar.
+// Ignora cliques que vieram (por bubbling) do próprio botão SIM/NÃO, já que o
+// clique em SIM é o mesmo evento que chega até aqui.
+card.addEventListener("click", (event) => {
+  if (event.target.closest("#actions")) return;
+  if (isShowingResponse && currentIndex < QUESTIONS.length - 1) {
+    goToNextQuestion();
+  }
+});
+
+/* ---------- 5. Botão NÃO: foge do toque/clique/foco ---------- */
+function resetNoButton() {
+  noBtn.classList.remove("is-escaping", "is-popping");
+  noBtn.style.left = "";
+  noBtn.style.top = "";
+}
+
+function rectsOverlap(x, y, width, height, avoidRect, buffer) {
+  return !(
+    x + width + buffer < avoidRect.left ||
+    x - buffer > avoidRect.right ||
+    y + height + buffer < avoidRect.top ||
+    y - buffer > avoidRect.bottom
+  );
+}
+
+function pickRandomSpot(width, height, avoidRect) {
+  const margin = 12;
+  const maxX = Math.max(margin, window.innerWidth - width - margin);
+  const maxY = Math.max(margin, window.innerHeight - height - margin);
+
+  let x = margin;
+  let y = margin;
+
+  for (let tentativa = 0; tentativa < 10; tentativa += 1) {
+    x = margin + Math.random() * (maxX - margin);
+    y = margin + Math.random() * (maxY - margin);
+    if (!rectsOverlap(x, y, width, height, avoidRect, 16)) break;
+  }
+
+  return { x, y };
+}
+
+function escapeNoButton() {
+  const btnRect = noBtn.getBoundingClientRect();
+  const avoidRect = card.getBoundingClientRect();
+
+  if (!noBtn.classList.contains("is-escaping")) {
+    // Trava a posição atual antes de virar "fixed", para não dar salto visual
+    noBtn.style.left = `${btnRect.left}px`;
+    noBtn.style.top = `${btnRect.top}px`;
+    noBtn.classList.add("is-escaping");
+    void noBtn.offsetWidth; // força o navegador a aplicar a posição inicial
+  }
+
+  const spot = pickRandomSpot(btnRect.width, btnRect.height, avoidRect);
+  noBtn.style.left = `${spot.x}px`;
+  noBtn.style.top = `${spot.y}px`;
+
+  if (!prefersReducedMotion) {
+    noBtn.classList.add("is-popping");
+    clearTimeout(escapeNoButton._popTimer);
+    escapeNoButton._popTimer = setTimeout(
+      () => noBtn.classList.remove("is-popping"),
+      220
+    );
+  }
+}
+
+// Cobre mouse (hover), toque e teclado — o botão nunca fica fácil de acertar
+["pointerenter", "pointerdown", "focus"].forEach((evento) => {
+  noBtn.addEventListener(evento, escapeNoButton);
+});
+
+// Se por acaso um clique acontecer, ele nunca conta como resposta "não"
+noBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  escapeNoButton();
+});
+
+// Mantém o botão dentro da tela se a janela for redimensionada/rotacionada
+window.addEventListener("resize", () => {
+  if (!noBtn.classList.contains("is-escaping")) return;
+
+  const btnRect = noBtn.getBoundingClientRect();
+  const margin = 12;
+  const maxX = Math.max(margin, window.innerWidth - btnRect.width - margin);
+  const maxY = Math.max(margin, window.innerHeight - btnRect.height - margin);
+  const curX = parseFloat(noBtn.style.left) || 0;
+  const curY = parseFloat(noBtn.style.top) || 0;
+
+  noBtn.style.left = `${Math.min(Math.max(margin, curX), maxX)}px`;
+  noBtn.style.top = `${Math.min(Math.max(margin, curY), maxY)}px`;
+});
+
+/* ---------- 6. Corações flutuando ao fundo (decoração ambiente) ---------- */
+function spawnAmbientHeart() {
+  const heart = document.createElement("span");
+  heart.className = "heart-floating";
+  heart.textContent =
+    EMOJIS_AMBIENTE[Math.floor(Math.random() * EMOJIS_AMBIENTE.length)];
+  heart.style.left = `${Math.random() * 100}vw`;
+  heart.style.fontSize = `${1 + Math.random() * 0.8}rem`;
+  heart.style.animationDuration = `${10 + Math.random() * 8}s`;
+  heart.style.animationDelay = `${Math.random() * 6}s`;
+  ambientHearts.appendChild(heart);
+}
+
+if (!prefersReducedMotion) {
+  const QUANTIDADE_CORACOES_AMBIENTE = 7;
+  for (let i = 0; i < QUANTIDADE_CORACOES_AMBIENTE; i += 1) {
+    spawnAmbientHeart();
+  }
+}
+
+/* ---------- 7. Explosão de corações (comemoração do SIM) ---------- */
+function createHeartBurst(quantidade) {
+  const total = prefersReducedMotion
+    ? Math.min(quantidade, 6)
+    : quantidade;
+
+  const origem = card.getBoundingClientRect();
+  const originX = origem.left + origem.width / 2;
+  const originY = origem.top + origem.height / 2;
+
+  for (let i = 0; i < total; i += 1) {
+    const heart = document.createElement("span");
+    heart.className = "burst-heart";
+    heart.textContent =
+      EMOJIS_COMEMORACAO[Math.floor(Math.random() * EMOJIS_COMEMORACAO.length)];
+    heart.style.left = `${originX}px`;
+    heart.style.top = `${originY}px`;
+
+    const dx = (Math.random() * 2 - 1) * 220;
+    const dy = -(100 + Math.random() * 240);
+    heart.style.setProperty("--fly-to", `translate(${dx}px, ${dy}px)`);
+    heart.style.setProperty("--fly-rot", `${Math.random() * 60 - 30}deg`);
+    heart.style.animationDuration = `${1 + Math.random() * 0.8}s`;
+
+    burst.appendChild(heart);
+    heart.addEventListener("animationend", () => heart.remove());
+  }
+}
+
+/* ---------- 8. Recomeçar o questionário ---------- */
+restartBtn.addEventListener("click", () => {
+  currentIndex = 0;
+  renderQuestion(currentIndex);
+});
+
+/* ---------- 9. Início ---------- */
+renderQuestion(currentIndex);

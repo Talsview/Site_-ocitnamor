@@ -1,0 +1,10 @@
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/
+
+# Netlify (gerado localmente pelo Netlify CLI, se usado)
+.netlify/
