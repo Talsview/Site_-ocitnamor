@@ -281,21 +281,85 @@ function rectsOverlap(x, y, width, height, avoidRect, buffer) {
   );
 }
 
-function pickRandomSpot(width, height, avoidRect) {
+function pickRandomSpot(width, height, avoidRect, currentRect) {
   const margin = 12;
+  const gapDoCard = 18;
+  const zonaDeFuga = 95;
+  const saltoMaximo = 150;
   const maxX = Math.max(margin, window.innerWidth - width - margin);
   const maxY = Math.max(margin, window.innerHeight - height - margin);
 
-  let x = margin;
-  let y = margin;
+  const candidatos = [];
 
-  for (let tentativa = 0; tentativa < 10; tentativa += 1) {
-    x = margin + Math.random() * (maxX - margin);
-    y = margin + Math.random() * (maxY - margin);
-    if (!rectsOverlap(x, y, width, height, avoidRect, 16)) break;
+  // Cria uma "faixa" de fuga ao redor do cartão, em vez de usar a tela inteira.
+  const areaExpandida = {
+    left: Math.max(margin, avoidRect.left - zonaDeFuga),
+    right: Math.min(window.innerWidth - margin, avoidRect.right + zonaDeFuga),
+    top: Math.max(margin, avoidRect.top - zonaDeFuga),
+    bottom: Math.min(window.innerHeight - margin, avoidRect.bottom + zonaDeFuga),
+  };
+
+  // Pontos previsíveis ao redor do cartão ajudam principalmente em celulares,
+  // onde pode haver pouco espaço nas laterais.
+  const pontosDeReferencia = [
+    [avoidRect.left - width - gapDoCard, avoidRect.top],
+    [avoidRect.right + gapDoCard, avoidRect.top],
+    [avoidRect.left - width - gapDoCard, avoidRect.bottom - height],
+    [avoidRect.right + gapDoCard, avoidRect.bottom - height],
+    [avoidRect.left, avoidRect.top - height - gapDoCard],
+    [avoidRect.right - width, avoidRect.top - height - gapDoCard],
+    [avoidRect.left, avoidRect.bottom + gapDoCard],
+    [avoidRect.right - width, avoidRect.bottom + gapDoCard],
+  ];
+
+  pontosDeReferencia.forEach(([x, y]) => {
+    if (x < margin || x > maxX || y < margin || y > maxY) return;
+    if (rectsOverlap(x, y, width, height, avoidRect, gapDoCard)) return;
+    if (currentRect) {
+      const atualX = currentRect.left + currentRect.width / 2;
+      const atualY = currentRect.top + currentRect.height / 2;
+      const novoX = x + width / 2;
+      const novoY = y + height / 2;
+      const distancia = Math.hypot(novoX - atualX, novoY - atualY);
+      if (distancia > saltoMaximo) return;
+    }
+    candidatos.push({ x, y });
+  });
+
+  // Completa a faixa com posições aleatórias próximas do cartão.
+  for (let tentativa = 0; tentativa < 30; tentativa += 1) {
+    const x = areaExpandida.left + Math.random() * Math.max(0, areaExpandida.right - areaExpandida.left - width);
+    const y = areaExpandida.top + Math.random() * Math.max(0, areaExpandida.bottom - areaExpandida.top - height);
+
+    if (x < margin || x > maxX || y < margin || y > maxY) continue;
+    if (rectsOverlap(x, y, width, height, avoidRect, gapDoCard)) continue;
+
+    if (currentRect) {
+      const atualX = currentRect.left + currentRect.width / 2;
+      const atualY = currentRect.top + currentRect.height / 2;
+      const novoX = x + width / 2;
+      const novoY = y + height / 2;
+      const distancia = Math.hypot(novoX - atualX, novoY - atualY);
+      if (distancia > saltoMaximo) continue;
+    }
+
+    candidatos.push({ x, y });
   }
 
-  return { x, y };
+  // Fallback: se a tela estiver apertada, mantém o botão perto do cartão e
+  // ainda prioriza qualquer posição que não fique por cima dele.
+  if (candidatos.length === 0) {
+    for (let tentativa = 0; tentativa < 40; tentativa += 1) {
+      const x = margin + Math.random() * Math.max(0, maxX - margin);
+      const y = margin + Math.random() * Math.max(0, maxY - margin);
+      if (!rectsOverlap(x, y, width, height, avoidRect, gapDoCard)) {
+        return { x, y };
+      }
+    }
+  }
+
+  const escolhido = candidatos[Math.floor(Math.random() * candidatos.length)];
+  return escolhido || { x: margin, y: margin };
 }
 
 function escapeNoButton() {
@@ -310,7 +374,7 @@ function escapeNoButton() {
     void noBtn.offsetWidth; // força o navegador a aplicar a posição inicial
   }
 
-  const spot = pickRandomSpot(btnRect.width, btnRect.height, avoidRect);
+  const spot = pickRandomSpot(btnRect.width, btnRect.height, avoidRect, btnRect);
   noBtn.style.left = `${spot.x}px`;
   noBtn.style.top = `${spot.y}px`;
 
@@ -326,14 +390,17 @@ function escapeNoButton() {
   }
 }
 
-// O botão fica parado; só foge no instante em que a pessoa tenta apertar
-// (pointerdown cobre tanto o clique do mouse quanto o toque no celular)
+// O botão fica parado; só foge no instante em que a pessoa tenta apertar.
+// pointerdown cobre mouse e toque no celular sem esperar o clique terminar.
 noBtn.addEventListener("pointerdown", escapeNoButton);
 
-// Se por acaso um clique acontecer, ele nunca conta como resposta "não"
-noBtn.addEventListener("click", (e) => {
-  e.preventDefault();
-  escapeNoButton();
+// A interação por teclado continua funcionando sem causar uma segunda fuga
+// quando o navegador dispara o evento de clique depois do pointerdown.
+noBtn.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    escapeNoButton();
+  }
 });
 
 // Mantém o botão dentro da tela se a janela for redimensionada/rotacionada
