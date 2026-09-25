@@ -182,10 +182,9 @@ function escapeNoButton() {
   }
 }
 
-// Cobre mouse (hover), toque e teclado — o botão nunca fica fácil de acertar
-["pointerenter", "pointerdown", "focus"].forEach((evento) => {
-  noBtn.addEventListener(evento, escapeNoButton);
-});
+// O botão fica parado; só foge no instante em que a pessoa tenta apertar
+// (pointerdown cobre tanto o clique do mouse quanto o toque no celular)
+noBtn.addEventListener("pointerdown", escapeNoButton);
 
 // Se por acaso um clique acontecer, ele nunca conta como resposta "não"
 noBtn.addEventListener("click", (e) => {
